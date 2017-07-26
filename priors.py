@@ -70,6 +70,29 @@ class jeffreys(stats.rv_continuous):
         return interpolate.interp1d(cdf, x)(q)
 
 
+class modjeff(stats.rv_continuous):
+    def _argcheck(self, x0, xmax):
+       return (xmax > x0) & (x0 > 0)
+
+   def _pdf(self, x, x0, xmax):
+       cond = n.logical_or(n.less(x, 0), n.greater(x, xmax))
+       pdf = n.where(cond, 0.0, 1.0/(x0 * (1 + x/x0) * np.log(1 + xmax/x0)))
+       return pdf
+
+   def _cdf(self, x, x0, xmax):
+       cdf = n.log(1 + x/x0) / n.log(1 + xmax/x0)
+       cdf = n.where(x >= xmin, cdf, 0.0)
+       cdf = n.where(x < xmax, cdf, 1.0)
+       return cdf
+
+    def _ppf(self, q, x0, xmax):
+        dx = xmax*step
+        x = n.arange(0, xmax + dx, dx)
+        cdf = self._cdf(x, x0, xmax)
+        # Interpolate the _inverse_ CDF
+        return interpolate.interp1d(cdf, x)(q)
+   
+    
 class binorm(stats.rv_continuous):
 
     def _argcheck(self, mu1, sigma1, mu2, sigma2, A):
@@ -306,6 +329,10 @@ distdict['Uniform'] = [UniformPrior, 2]
 JeffreysPrior = jeffreys(name='Jeffreys distribution',
                          shapes='xmin, xmax', a=0.0)
 distdict['Jeffreys'] = [JeffreysPrior, 2]
+
+ModJeffreysPrior = modjeff(name='Modified Jeffreys distribution',
+                               shapes='x0, xmax', a=0.0)
+distdict['ModJeffreys'] = [ModJeffreysPrior, 2]
 
 NormalPrior = stats.norm
 distdict['Normal'] = [NormalPrior, 2]
