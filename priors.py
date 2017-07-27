@@ -72,18 +72,18 @@ class jeffreys(stats.rv_continuous):
 
 class modjeff(stats.rv_continuous):
     def _argcheck(self, x0, xmax):
-       return (xmax > x0) & (x0 > 0)
+        return (xmax > x0) & (x0 > 0)
 
-   def _pdf(self, x, x0, xmax):
-       cond = n.logical_or(n.less(x, 0), n.greater(x, xmax))
-       pdf = n.where(cond, 0.0, 1.0/(x0 * (1 + x/x0) * np.log(1 + xmax/x0)))
-       return pdf
+    def _pdf(self, x, x0, xmax):
+        cond = n.logical_or(n.less(x, 0), n.greater(x, xmax))
+        pdf = n.where(cond, 0.0, 1.0/(x0 * (1 + x/x0) * n.log(1 + xmax/x0)))
+        return pdf
 
-   def _cdf(self, x, x0, xmax):
-       cdf = n.log(1 + x/x0) / n.log(1 + xmax/x0)
-       cdf = n.where(x >= xmin, cdf, 0.0)
-       cdf = n.where(x < xmax, cdf, 1.0)
-       return cdf
+    def _cdf(self, x, x0, xmax):
+        cdf = n.log(1 + x/x0) / n.log(1 + xmax/x0)
+        cdf = n.where(x >= xmin, cdf, 0.0)
+        cdf = n.where(x < xmax, cdf, 1.0)
+        return cdf
 
     def _ppf(self, q, x0, xmax):
         dx = xmax*step
