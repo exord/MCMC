@@ -85,7 +85,7 @@ class modjeff_gen(rv_continuous):
 
     def _cdf(self, x, x0, xmax):
         cdf = n.log(1 + x/x0) / n.log(1 + xmax/x0)
-        cdf = n.where(x >= xmin, cdf, 0.0)
+        cdf = n.where(x >= 0.0, cdf, 0.0)
         cdf = n.where(x < xmax, cdf, 1.0)
         return cdf
 
