@@ -5,13 +5,11 @@ import numpy as n
 from math import *
 from scipy import stats, interpolate
 
+from scipy.stats import rv_continuous
+
 # Number of points to sample CDF and get PPF from inversion
 N = 1e4
 step = 1.0/N
-
-
-distdict = {}
-
 
 ###
 # Exceptions used in this module
@@ -23,7 +21,7 @@ class PriorError(Exception):
 ###
 # Home-made distributions
 ###
-class uniform(stats.rv_continuous):
+class uniform_gen(rv_continuous):
     def _argcheck(self, xmin, xmax):
         return xmin < xmax
 
@@ -45,7 +43,7 @@ class uniform(stats.rv_continuous):
         return stats.uniform.ppf(q, loc=xmin, scale=xmax - xmin)
 
 
-class jeffreys(stats.rv_continuous):
+class jeffreys_gen(rv_continuous):
 
     def _argcheck(self, xmin, xmax):
         return (xmin > 0.0) & (xmax > xmin)
@@ -70,7 +68,13 @@ class jeffreys(stats.rv_continuous):
         return interpolate.interp1d(cdf, x)(q)
 
 
-class modjeff(stats.rv_continuous):
+class modjeff_gen(rv_continuous):
+
+    def init(self, x0, xmax):
+        super(modjeff, self).__init__(a=0.0, shapes='x0, xmax',
+                                      name='modjeff',
+                                      longname='Modified Jeffreys distribution')
+        
     def _argcheck(self, x0, xmax):
         return (xmax > x0) & (x0 > 0)
 
@@ -93,7 +97,7 @@ class modjeff(stats.rv_continuous):
         return interpolate.interp1d(cdf, x)(q)
    
     
-class binorm(stats.rv_continuous):
+class binorm_gen(rv_continuous):
 
     def _argcheck(self, mu1, sigma1, mu2, sigma2, A):
         return (sigma1 > 0) & (sigma2 > 0) & (mu1 <= mu2) & (A >= -1.) & (A <= 1.)
@@ -117,7 +121,7 @@ class binorm(stats.rv_continuous):
         return interpolate.interp1d(cdf, x)(q)
 
 
-class log10norm(stats.rv_continuous):
+class log10norm_gen(rv_continuous):
 
     def _argcheck(self, mu, sigma):
         return sigma > 0
@@ -137,7 +141,7 @@ class log10norm(stats.rv_continuous):
         return 10**(interpolate.interp1d(cdf, x)(q))
 
 
-class bilog10norm(stats.rv_continuous):
+class bilog10norm_gen(rv_continuous):
 
     def _argcheck(self, mu1, sigma1, mu2, sigma2, A):
         return (sigma1 > 0) & (sigma2 > 0) & (mu1 <= mu2) & (A >= -1.) & (A <= 1.)
@@ -168,7 +172,7 @@ class bilog10norm(stats.rv_continuous):
         return 10**(interpolate.interp1d(cdf, x)(q))
 
 
-class asymmetricnorm(stats.rv_continuous):
+class asymmetricnorm_gen(rv_continuous):
 
     def _argcheck(self, mu, sigma1, sigma2):
         return (sigma1 > 0) & (sigma2 > 0)
@@ -194,7 +198,7 @@ class asymmetricnorm(stats.rv_continuous):
         return interpolate.interp1d(cdf, x)(q)
 
 
-class truncnormU(stats.rv_continuous):
+class truncnormU_gen(rv_continuous):
     def _argcheck(self, mu, sigma, xmin, xmax):
         return (sigma > 0)
 
@@ -220,7 +224,7 @@ class truncnormU(stats.rv_continuous):
         return interpolate.interp1d(cdf, x)(q)
 
     
-class truncnormJ(stats.rv_continuous):
+class truncnormJ_gen(rv_continuous):
     def _argcheck(self, mu, sigma, xmin, xmax):
         return (sigma > 0)
 
@@ -232,7 +236,7 @@ class truncnormJ(stats.rv_continuous):
         return n.where((x > xmin) & (x < xmax), n1, 0.0)
 
 
-class powerlaw(stats.rv_continuous):
+class powerlaw_gen(rv_continuous):
     def _argcheck(self, alpha, xmin, xmax):
         return (xmax > xmin) and (xmin >= 0) and (xmax > 0) and (alpha != -1)
 
@@ -255,7 +259,7 @@ class powerlaw(stats.rv_continuous):
         return interpolate.interp1d(cdf, x)(q)
 
 
-class doublepowerlaw(stats.rv_continuous):
+class doublepowerlaw_gen(rv_continuous):
     def _argcheck(self, alpha, beta, x0, xmin, xmax):
         return (xmax > xmin) and (xmin >= 0) and (xmax > 0) and (alpha != -1)
 
@@ -294,7 +298,7 @@ class doublepowerlaw(stats.rv_continuous):
         return interpolate.interp1d(cdf, x)(q)
 
 
-class sine(stats.rv_continuous):
+class sine_gen(rv_continuous):
     def _argcheck(self, xmin, xmax):
         return (xmax > xmin)
 
@@ -321,63 +325,127 @@ class sine(stats.rv_continuous):
         # Interpolate the _inverse_ CDF
         return interpolate.interp1d(cdf, x)(q)
 
+class alpha_gen(rv_continuous):
+    """
+    An alpha continuous random variable.
+
+    %(before_notes)s
+
+    Notes
+    -----
+    The probability density function for `alpha` is::
+
+        alpha.pdf(x,a) = 1/(x**2*Phi(a)*sqrt(2*pi)) * exp(-1/2 * (a-1/x)**2),
+
+    where ``Phi(alpha)`` is the normal CDF, ``x > 0``, and ``a > 0``.
+    """
+    def _argcheck(self, a):
+        return (a > 0)
+        
+    def _pdf(self, x, a):
+        return stats.alpha.pdf(x, a)
+
+    def _cdf(self, x, a):
+        return stats.alpha.cdf(x, a)
+
+    def _ppf(self, q, a):
+        return stats.alpha.ppf(q, a)
+
+class beta_gen(rv_continuous):
+    """
+    A beta continuous random variable.
+
+    Notes
+    -----
+    The probability density function for `beta` is::
+
+        beta.pdf(x, a, b) = gamma(a+b)/(gamma(a)*gamma(b)) * x**(a-1) *
+        (1-x)**(b-1),
+
+    for ``0 < x < 1``, ``a > 0``, ``b > 0``.
+    """
+    def _argcheck(self, a, b):
+        return (a > 0) & (b > 0)
+
+    def _pdf(self, x, a, b):
+        return stats.beta.pdf(x, a, b)
+
+    def _cdf(self, x, a, b):
+        return stats.beta.cdf(x, a, b)
+
+    def _ppf(self, q, a, b):
+        return stats.beta.ppf(q, a, b)
+
+class gamma_gen(rv_continuous):
+    """
+    Notes
+    -----
+    The probability density function for `gamma` is::
+
+        gamma.pdf(x, a) = lambda**a * x**(a-1) * exp(-lambda*x) / gamma(a)
+
+    for ``x >= 0``, ``a > 0``. Here ``gamma(a)`` refers to the gamma function.
+
+    The scale parameter is equal to ``scale = 1.0 / lambda``.
+
+    `gamma` has a shape parameter `a` which needs to be set explicitly. For instance:
+
+        >>> from scipy.stats import gamma
+        >>> rv = gamma(3., loc = 0., scale = 2.)
+
+    produces a frozen form of `gamma` with shape ``a = 3.``, ``loc =0.``
+    and ``lambda = 1./scale = 1./2.``.
+    """
+    
+    def _argcheck(self, alpha, beta):
+        return (alpha > 0.0) & (beta > 0.0)
+
+    def _pdf(self, x, alpha, beta):
+        return stats.gamma.pdf(x, alpha, scale = 1.0/beta)
+
+    def _cdf(self, x, alpha, beta):
+        return stats.gamma.cdf(x, alpha, scale = 1.0/beta)
+
+    def _ppf(self, q, alpha, beta):
+        return stats.gamma.ppf(q, alpha, scale = 1.0/beta)
+
     
 # Change names and define shapes parameters for the home-made distributions
-UniformPrior = uniform(name='Uniform distribution', shapes='xmin, xmax')
-distdict['Uniform'] = [UniformPrior, 2]
-
-JeffreysPrior = jeffreys(name='Jeffreys distribution',
-                         shapes='xmin, xmax', a=0.0)
-distdict['Jeffreys'] = [JeffreysPrior, 2]
-
-ModJeffreysPrior = modjeff(name='Modified Jeffreys distribution',
+Uniform = uniform_gen(name='Uniform distribution', shapes='xmin, xmax')
+Jeffreys = jeffreys_gen(name='Jeffreys distribution',
+                        shapes='xmin, xmax', a=0.0)
+ModJeffreys = modjeff_gen(name='Modified Jeffreys distribution',
                                shapes='x0, xmax', a=0.0)
-distdict['ModJeffreys'] = [ModJeffreysPrior, 2]
+Normal = stats.norm
+LogNormal = stats.lognorm
+Log10Normal = log10norm_gen(name='Log10 Normal distribution',
+                            shapes='mu, sigma')
+Binormal = binorm_gen(name='Binormal distribution',
+                      shapes='mu1, sigma1, mu2, sigma2, A')
+Log10Binormal = bilog10norm_gen(name='Log10 Binormal distribution',
+                                shapes='mu1, sigma1, mu2, sigma2, A')
+AsymmetricNormal = asymmetricnorm_gen(name='Asymmetric normal distribution',
+                                      shapes='mu, sigma1, sigma2')
+TruncatedUNormal = truncnormU_gen(name='Truncated normal distribution',
+                                  shapes='mu, sigma, xmin, xmax')
+PowerLaw = powerlaw_gen(name='Power law distribution',
+                        shapes='alpha, xmin, xmax')
+DoublePowerLaw = doublepowerlaw_gen(name='Double Power law distribution',
+                                    shapes='alpha, beta, x0, xmin, xmax')
+Sine = sine_gen(name='Sine distribution', shapes='xmin, xmax', a=0.0,
+                b=180.0)
+Alpha = alpha_gen(name = 'Alpha distribution', shapes = 'a', a = 0.0)
+Beta = beta_gen(name='Beta distribution', shapes='a, b', a=0.0, b=1.0)
+Gamma = gamma_gen(name='Gamma distribution', shapes='alpha, beta',
+                       a=0.0)
 
-NormalPrior = stats.norm
-distdict['Normal'] = [NormalPrior, 2]
-
-LogNormalPrior = stats.lognorm
-distdict['LogNormal'] = [LogNormalPrior, 2]
-
-Log10NormalPrior = log10norm(name='Log10 Normal distribution',
-                             shapes='mu, sigma')
-
-BinormalPrior = binorm(name='Binormal distribution',
-                       shapes='mu1, sigma1, mu2, sigma2, A')
-distdict['Binormal'] = [BinormalPrior, 4]
-
-Log10BinormalPrior = bilog10norm(name='Log10 Binormal distribution',
-                                 shapes='mu1, sigma1, mu2, sigma2, A')
-
-AsymmetricNormalPrior = asymmetricnorm(name='Asymmetric normal distribution',
-                                       shapes='mu, sigma1, sigma2')
-distdict['AsymmetricNormal'] = [AsymmetricNormalPrior, 3]
-
-TruncatedUNormalPrior = truncnormU(name='Truncated normal distribution',
-                                   shapes='mu, sigma, xmin, xmax')
-distdict['TruncatedUNormal'] = [TruncatedUNormalPrior, 4]
-
-PowerLawPrior = powerlaw(name='Power law distribution',
-                         shapes='alpha, xmin, xmax')
-distdict['PowerLaw'] = [PowerLawPrior, 3]
-
-DoublePowerLawPrior = doublepowerlaw(name='Double Power law distribution',
-                                     shapes='alpha, beta, x0, xmin, xmax')
-distdict['DoublePowerLaw'] = [DoublePowerLawPrior, 5]
-
-SinePrior = sine(name='Sine distribution', shapes='xmin, xmax', a=0.0,
-                 b=180.0)
-distdict['Sine'] = [SinePrior, 2]
-
-# BetaPrior = stats.beta
-
+# Construct dictionary
+distdict = globals().copy()
 
 def prior_constructor(input_dict, customprior_dict):
     """
     Read cofiguration file; construct dictionary with Prior instances.
     """
-    global priordict
     priordict = {}
 
     # Iteration over all parameter objects
@@ -402,13 +470,11 @@ def prior_constructor(input_dict, customprior_dict):
             priortype = parlist[2][0]
             pars = parlist[2][1:]
             try:
-                nparams = distdict[priortype][1] 
-                prior = distdict[priortype][0](*pars)
+                # nparams = distdict[priortype][1] 
+                prior = distdict[priortype](*pars)
             except KeyError:
                 raise PriorError('Parameter {}_{}: Unknown type '
                                  'of prior.'.format(objkey, parkey))
-
-            # prior = build_prior_instance(priortype, *pars, parname = parkey)
             
             priordict[objkey+'_'+parkey] = prior
 
@@ -427,8 +493,7 @@ def prior_constructor(input_dict, customprior_dict):
         pars = pdict[func_string][3:]
 
         try:
-            nparams = distdict[priortype][1]
-            prior = distdict[priortype][0](*pars[:nparams])
+            prior = distdict[priortype](*pars[:nparams])
         except KeyError:
             raise PriorError('Custom prior '+key+': Unknown type of prior.')
 
@@ -495,109 +560,6 @@ def compute_priors(priordict, labeldict):
         priorprob[key] = p
 
     return n.prod(list(priorprob.values())), priorprob
-
-
-###
-# NEW PRIORS (implemented in the end of the file to ease reintegration
-###
-class alpha(stats.rv_continuous):
-    """
-    An alpha continuous random variable.
-
-    %(before_notes)s
-
-    Notes
-    -----
-    The probability density function for `alpha` is::
-
-        alpha.pdf(x,a) = 1/(x**2*Phi(a)*sqrt(2*pi)) * exp(-1/2 * (a-1/x)**2),
-
-    where ``Phi(alpha)`` is the normal CDF, ``x > 0``, and ``a > 0``.
-    """
-    def _argcheck(self, a):
-        return (a > 0)
-        
-    def _pdf(self, x, a):
-        return stats.alpha.pdf(x, a)
-
-    def _cdf(self, x, a):
-        return stats.alpha.cdf(x, a)
-
-    def _ppf(self, q, a):
-        return stats.alpha.ppf(q, a)
-
-
-AlphaPrior = alpha(name = 'Alpha distribution', shapes = 'a', a = 0.0)
-distdict['Alpha'] = [AlphaPrior, 1]
-
-
-class Beta(stats.rv_continuous):
-    """
-    A beta continuous random variable.
-
-    Notes
-    -----
-    The probability density function for `beta` is::
-
-        beta.pdf(x, a, b) = gamma(a+b)/(gamma(a)*gamma(b)) * x**(a-1) *
-        (1-x)**(b-1),
-
-    for ``0 < x < 1``, ``a > 0``, ``b > 0``.
-    """
-    def _argcheck(self, a, b):
-        return (a > 0) & (b > 0)
-
-    def _pdf(self, x, a, b):
-        return stats.beta.pdf(x, a, b)
-
-    def _cdf(self, x, a, b):
-        return stats.beta.cdf(x, a, b)
-
-    def _ppf(self, q, a, b):
-        return stats.beta.ppf(q, a, b)
-
-
-BetaPrior = Beta(name='Beta distribution', shapes='a, b', a=0.0, b=1.0)
-distdict['Beta'] = [BetaPrior, 2]
-
-
-class Gamma(stats.rv_continuous):
-    """
-    Notes
-    -----
-    The probability density function for `gamma` is::
-
-        gamma.pdf(x, a) = lambda**a * x**(a-1) * exp(-lambda*x) / gamma(a)
-
-    for ``x >= 0``, ``a > 0``. Here ``gamma(a)`` refers to the gamma function.
-
-    The scale parameter is equal to ``scale = 1.0 / lambda``.
-
-    `gamma` has a shape parameter `a` which needs to be set explicitly. For instance:
-
-        >>> from scipy.stats import gamma
-        >>> rv = gamma(3., loc = 0., scale = 2.)
-
-    produces a frozen form of `gamma` with shape ``a = 3.``, ``loc =0.``
-    and ``lambda = 1./scale = 1./2.``.
-    """
-    
-    def _argcheck(self, alpha, beta):
-        return (alpha > 0.0) & (beta > 0.0)
-
-    def _pdf(self, x, alpha, beta):
-        return stats.gamma.pdf(x, alpha, scale = 1.0/beta)
-
-    def _cdf(self, x, alpha, beta):
-        return stats.gamma.cdf(x, alpha, scale = 1.0/beta)
-
-    def _ppf(self, q, alpha, beta):
-        return stats.gamma.ppf(q, alpha, scale = 1.0/beta)
-
-
-GammaPrior = Gamma(name='Gamma distribution', shapes='alpha, beta',
-                   a=0.0)
-distdict['Gamma'] = [GammaPrior, 2]
 
 
 
