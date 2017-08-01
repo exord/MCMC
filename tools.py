@@ -5,6 +5,8 @@ import numpy as n
 import numpy as np
 import pickle
 
+import bayev.perrakis as perr
+
 # Intra-package imports
 from . import Objects_MCMC as objMCMC
 
@@ -267,5 +269,52 @@ def emcee_mapdict(sampler):
     return dict((sampler.args[0][i], mapvalues[i])
                 for i in range(len(mapvalues)))
 
+def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
+    """
+    Compute the Perrakis estimate of ln(Z) for a given sampler.
+    """
 
-    
+    # Flatten chain first
+    fc = emcee_flatten(sampler, bi=bi, chainindexes=cind)
+
+    # Construct marginal samples
+    marginal = perr.make_marginal_samples(fc, nsamples)
+
+    # Get functions and parameters
+    lnlikefunc = sampler.args[1]
+    lnpriorfunc = sampler.args[2]
+
+    lnlikeargs = [sampler.args[0],]
+    lnpriorargs = [sampler.args[0],]
+    lnlikeargs.extend(sampler.kwargs['lnlikeargs'])
+    lnpriorargs.extend(sampler.kwargs['lnpriorargs'])
+
+    # Change this ugly thing!
+    def lnl(x, *args):
+        y = np.empty(len(x))
+        for i, xx in enumerate(x):
+            y[i] = lnlikefunc(xx, *args)
+        return y
+
+    def lnp(x, *args):
+        y = np.empty(len(x))
+        for i, xx in enumerate(x):
+            y[i] = lnpriorfunc(xx, *args)
+        return y
+        
+        
+    # Compute perrakis
+    lnZ =  perr.compute_perrakis_estimate(marginal, lnl, lnp,
+                                          lnlikeargs, lnpriorargs)
+
+    # Correct for missing term in likelihood
+    datadict = sampler.kwargs['lnlikeargs'][1]
+    nobs = 0
+    for inst in datadict:
+        nobs += len(datadict[inst]['data'])
+    print('{} datapoints.'.format(nobs))
+    lnZ += -0.5 * nobs * log(2*pi)
+
+    return lnZ, lnZ/log(10)
+                                   
+   
