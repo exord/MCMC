@@ -321,10 +321,13 @@ def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
 
 
 def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, nrepetitions=1,
-                         cind=None, ncpu=None, outputfile='./perrakis_out.txt'):
+                         cind=None, ncpu=None, datacorrect=False,
+                         outputfile='./perrakis_out.txt'):
     """
     Compute the Perrakis estimate of ln(Z) for a given sampler 
     repeateadly using multicore
+
+    WRITE DOC
     """
     
     # Flatten chain first
@@ -385,12 +388,13 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, nrepetitions=1,
     # Recover output
     lnz = np.concatenate([q.get() for p in jobs])
     
-    # Correct for missing term in likelihood
-    datadict = sampler.kwargs['lnlikeargs'][1]
-    nobs = 0
-    for inst in datadict:
-        nobs += len(datadict[inst]['data'])
-    lnz += -0.5 * nobs * log(2*pi)
+    if datacorrect:
+        # Correct for missing term in likelihood
+        datadict = sampler.kwargs['lnlikeargs'][1]
+        nobs = 0
+        for inst in datadict:
+            nobs += len(datadict[inst]['data'])
+        lnz += -0.5 * nobs * log(2*pi)
 
     # Write to file
     f = open(outputfile, 'a+')
@@ -407,6 +411,9 @@ def single_perrakis(fc, nsamples, lnl, lnp, lnlargs, lnpargs, nruns,
     # Prepare output array
     lnz = np.empty(nruns)
 
+    #
+    np.random.seed()
+    
     for i in range(nruns):
         # Construct marginal samples
         marginal = perr.make_marginal_samples(fc, nsamples)
