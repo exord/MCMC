@@ -4,6 +4,7 @@ import os
 import numpy as n
 import numpy as np
 import pickle
+from math import log, pi
 
 import bayev.perrakis as perr
 
