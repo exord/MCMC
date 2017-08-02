@@ -5,6 +5,8 @@ import numpy as n
 import numpy as np
 import pickle
 from math import log, pi
+import time
+import multiprocessing as mp
 
 import bayev.perrakis as perr
 
@@ -278,8 +280,55 @@ def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
     # Flatten chain first
     fc = emcee_flatten(sampler, bi=bi, chainindexes=cind)
 
+    # Get functions and parameters
+    lnlikefunc = sampler.args[1]
+    lnpriorfunc = sampler.args[2]
+
+    lnlikeargs = [sampler.args[0],]
+    lnpriorargs = [sampler.args[0],]
+    lnlikeargs.extend(sampler.kwargs['lnlikeargs'])
+    lnpriorargs.extend(sampler.kwargs['lnpriorargs'])
+
+    # Change this ugly thing!
+    def lnl(x, *args):
+        y = np.empty(len(x))
+        for i, xx in enumerate(x):
+            y[i] = lnlikefunc(xx, *args)
+        return y
+
+    def lnp(x, *args):
+        y = np.empty(len(x))
+        for i, xx in enumerate(x):
+            y[i] = lnpriorfunc(xx, *args)
+        return y
+
     # Construct marginal samples
     marginal = perr.make_marginal_samples(fc, nsamples)
+
+    # Compute perrakis
+    lnZ =  perr.compute_perrakis_estimate(marginal, lnl, lnp,
+                                          lnlikeargs, lnpriorargs)
+
+    # Correct for missing term in likelihood
+    datadict = sampler.kwargs['lnlikeargs'][1]
+    nobs = 0
+    for inst in datadict:
+        nobs += len(datadict[inst]['data'])
+    #print('{} datapoints.'.format(nobs))
+    lnZ += -0.5 * nobs * log(2*pi)
+
+    return lnZ, lnZ/log(10)
+
+
+def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, nrepetitions=1,
+                         cind=None, ncpu=None, outputfile='./perrakis_out.txt'):
+    """
+    Compute the Perrakis estimate of ln(Z) for a given sampler 
+    repeateadly using multicore
+    """
+    
+    # Flatten chain first
+    fc = emcee_flatten(sampler, bi=bi, chainindexes=cind)
 
     # Get functions and parameters
     lnlikefunc = sampler.args[1]
@@ -302,41 +351,68 @@ def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
         for i, xx in enumerate(x):
             y[i] = lnpriorfunc(xx, *args)
         return y
-        
-        
-    # Compute perrakis
-    lnZ =  perr.compute_perrakis_estimate(marginal, lnl, lnp,
-                                          lnlikeargs, lnpriorargs)
 
+    # Prepare multiprocessing
+    if ncpu is None:
+        ncpu = mp.cpu_count()
+
+    # Check if number of requested repetitions below ncpu
+    ncpu = min(ncpu, nrepetitions)
+
+    # Number of repetitions per process
+    nrep_proc = int(nrepetitions/ncpu)
+    
+    # Instantiate output queue
+    q = mp.Queue()
+
+    # List of jobs to run
+    jobs = []
+
+    print('Running {} repetitions on {} CPU(s).'.format(nrepetitions, ncpu))
+    
+    for i in range(ncpu):
+        p = mp.Process(target=single_perrakis, args=[fc, nsamples, lnl, lnp,
+                                                     lnlikeargs, lnpriorargs,   
+                                                     nrep_proc, q])
+        jobs.append(p)
+        p.start()
+        time.sleep(1)
+
+    # Wait until all jobs are done
+    for p in jobs:
+        p.join()
+        
+    # Recover output
+    lnz = np.concatenate([q.get() for p in jobs])
+    
     # Correct for missing term in likelihood
     datadict = sampler.kwargs['lnlikeargs'][1]
     nobs = 0
     for inst in datadict:
         nobs += len(datadict[inst]['data'])
-    #print('{} datapoints.'.format(nobs))
-    lnZ += -0.5 * nobs * log(2*pi)
+    lnz += -0.5 * nobs * log(2*pi)
 
-    return lnZ, lnZ/log(10)
-
-
-def multirun_perrakis(lnzdict,
-                      sampler, nsamples=5000, bi=0, cind=None, nruns=1000):
-
-    lnz = np.zeros([nruns, 2])
-    for i in range(nruns):
-        if (i+1)%10 == 0:
-            print('Step {} out of {}'.format(i+1, nruns))
-        lnz[i] = emcee_perrakis(sampler, nsamples, bi, cind)
-
-    """
-    f = open('/Users/rodrigo/Desktop/test.dat', 'a+')
-
-    for i in range(len(lnz)):
-        f.write('{:.5f}\t{:.5f}\n'.format(lnz[i][0], lnz[i][1]))
+    # Write to file
+    f = open(outputfile, 'a+')
+    for ll in lnz:
+        f.write('{:.6f}\t{:.6f}\n'.format(ll, ll/log(10)))
     f.close()
-    """
-    import time
-    lnzdict[time.time()] = lnz
+                    
+    return lnz, lnz/log(10)
 
-    return
-                
+
+def single_perrakis(fc, nsamples, lnl, lnp, lnlargs, lnpargs, nruns,
+                    output_queue):
+
+    # Prepare output array
+    lnz = np.empty(nruns)
+
+    for i in range(nruns):
+        # Construct marginal samples
+        marginal = perr.make_marginal_samples(fc, nsamples)
+
+        # Compute perrakis
+        lnz[i] =  perr.compute_perrakis_estimate(marginal, lnl, lnp,
+                                                 lnlargs, lnpargs)
+        
+    output_queue.put(lnz)
