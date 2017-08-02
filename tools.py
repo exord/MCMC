@@ -313,9 +313,30 @@ def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
     nobs = 0
     for inst in datadict:
         nobs += len(datadict[inst]['data'])
-    print('{} datapoints.'.format(nobs))
+    #print('{} datapoints.'.format(nobs))
     lnZ += -0.5 * nobs * log(2*pi)
 
     return lnZ, lnZ/log(10)
-                                   
-   
+
+
+def multirun_perrakis(lnzdict,
+                      sampler, nsamples=5000, bi=0, cind=None, nruns=1000):
+
+    lnz = np.zeros([nruns, 2])
+    for i in range(nruns):
+        if (i+1)%10 == 0:
+            print('Step {} out of {}'.format(i+1, nruns))
+        lnz[i] = emcee_perrakis(sampler, nsamples, bi, cind)
+
+    """
+    f = open('/Users/rodrigo/Desktop/test.dat', 'a+')
+
+    for i in range(len(lnz)):
+        f.write('{:.5f}\t{:.5f}\n'.format(lnz[i][0], lnz[i][1]))
+    f.close()
+    """
+    import time
+    lnzdict[time.time()] = lnz
+
+    return
+                
