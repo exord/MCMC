@@ -6,7 +6,9 @@ import numpy as np
 import pickle
 from math import log, pi
 import time
+import warnings
 import multiprocessing as mp
+from multiprocessing.queues import Empty
 
 import bayev.perrakis as perr
 
@@ -233,7 +235,8 @@ def emcee_flatten(sampler, bi=None, chainindexes=None):
     
     fc = sampler.chain[chainind, bi:, :].reshape(sum(chainind) * (nsteps - bi),
                                                  dim)
-    
+    # Shuffle once to loose correlations
+    np.random.shuffle(fc)
     return fc
 
 def read_samplers(samplerfiles, rootdir):
@@ -320,7 +323,7 @@ def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
     return lnZ, lnZ/log(10)
 
 
-def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, nrepetitions=1,
+def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
                          cind=None, ncpu=None, datacorrect=False,
                          outputfile='./perrakis_out.txt'):
     """
@@ -331,7 +334,7 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, nrepetitions=1,
     """
     
     # Flatten chain first
-    fc = emcee_flatten(sampler, bi=bi, chainindexes=cind)
+    fc = emcee_flatten(sampler, bi=bi, chainindexes=cind)[::thin]
 
     # Get functions and parameters
     lnlikefunc = sampler.args[1]
@@ -385,9 +388,18 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, nrepetitions=1,
     for p in jobs:
         p.join()
         
-    # Recover output
-    lnz = np.concatenate([q.get() for p in jobs])
-    
+    # Recover output from jobs
+    try:
+        lnz = np.concatenate([q.get(block=False) for p in jobs])
+    except Empty:
+        warnings.warn('At least one of the jobs failed to produce output.')
+
+    try:
+        len(lnz)
+    except UnboundLocalError:
+        raise UnboundLocalError('Critical error! No job produced any output. Aborting!')
+            
+        
     if datacorrect:
         # Correct for missing term in likelihood
         datadict = sampler.kwargs['lnlikeargs'][1]
@@ -415,6 +427,9 @@ def single_perrakis(fc, nsamples, lnl, lnp, lnlargs, lnpargs, nruns,
     np.random.seed()
     
     for i in range(nruns):
+        if i%10 == 0:
+            print(i)
+
         # Construct marginal samples
         marginal = perr.make_marginal_samples(fc, nsamples)
 
