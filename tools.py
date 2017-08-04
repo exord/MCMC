@@ -365,41 +365,48 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
     # Check if number of requested repetitions below ncpu
     ncpu = min(ncpu, nrepetitions)
 
-    # Number of repetitions per process
-    nrep_proc = int(nrepetitions/ncpu)
-    
     # Instantiate output queue
     q = mp.Queue()
 
-    # List of jobs to run
-    jobs = []
-
     print('Running {} repetitions on {} CPU(s).'.format(nrepetitions, ncpu))
+
+    if ncpu == 1:
+        # Do not use multiprocessing
+        lnz = single_perrakis(fc, nsamples, lnl, lnp, lnlikeargs, lnpriorargs,
+                              nrepetitions, None)
+
+    else:
+        # Number of repetitions per process
+        nrep_proc = int(nrepetitions/ncpu)
     
-    for i in range(ncpu):
-        p = mp.Process(target=single_perrakis, args=[fc, nsamples, lnl, lnp,
-                                                     lnlikeargs, lnpriorargs,   
-                                                     nrep_proc, q])
-        jobs.append(p)
-        p.start()
-        time.sleep(1)
+        # List of jobs to run
+        jobs = []
+    
+        for i in range(ncpu):
+            p = mp.Process(target=single_perrakis, args=[fc, nsamples, lnl, lnp,
+                                                        lnlikeargs,
+                                                        lnpriorargs,   
+                                                        nrep_proc, q])
+            jobs.append(p)
+            p.start()
+            time.sleep(1)
 
-    # Wait until all jobs are done
-    for p in jobs:
-        p.join()
+        # Wait until all jobs are done
+        for p in jobs:
+            p.join()
         
-    # Recover output from jobs
-    try:
-        lnz = np.concatenate([q.get(block=False) for p in jobs])
-    except Empty:
-        warnings.warn('At least one of the jobs failed to produce output.')
+        # Recover output from jobs
+        try:
+            print(q.empty())
+            lnz = np.concatenate([q.get(block=False) for p in jobs])
+        except Empty:
+            warnings.warn('At least one of the jobs failed to produce output.')
 
-    try:
-        len(lnz)
-    except UnboundLocalError:
-        raise UnboundLocalError('Critical error! No job produced any output. Aborting!')
-            
-        
+        try:
+            len(lnz)
+        except UnboundLocalError:
+            raise UnboundLocalError('Critical error! No job produced any output. Aborting!')
+
     if datacorrect:
         # Correct for missing term in likelihood
         datadict = sampler.kwargs['lnlikeargs'][1]
@@ -437,4 +444,9 @@ def single_perrakis(fc, nsamples, lnl, lnp, lnlargs, lnpargs, nruns,
         lnz[i] =  perr.compute_perrakis_estimate(marginal, lnl, lnp,
                                                  lnlargs, lnpargs)
         
-    output_queue.put(lnz)
+    if output_queue == None:
+        return lnz
+    else:
+        output_queue.put(lnz)
+    return
+
