@@ -11,6 +11,7 @@ import multiprocessing as mp
 from multiprocessing.queues import Empty
 
 import bayev.perrakis as perr
+import emcee
 
 # Intra-package imports
 from . import Objects_MCMC as objMCMC
@@ -225,16 +226,21 @@ def emcee_flatten(sampler, bi=None, chainindexes=None):
     else:
         bi = int(bi)
 
-    nwalkers, nsteps, dim = sampler.chain.shape
+    if isinstance(sampler, emcee.Sampler):
+        nwalkers, nsteps, dim = sampler.chain.shape
+        chain = sampler.chain
+    elif isinstance(sampler, np.ndarray):
+        nwalkers, nsteps, dim = sampler.shape
+        chain = sampler
 
     if chainindexes is None:
-        chainind = [True] * nwalkers
+        chainind = np.array([True] * nwalkers)
     else:
-        chainind = list(chainindexes)
+        chainind = np.array(chainindexes)
         assert len(chainind) == sampler.chain.shape[0]
     
-    fc = sampler.chain[chainind, bi:, :].reshape(sum(chainind) * (nsteps - bi),
-                                                 dim)
+    fc = chain[chainind, bi:, :].reshape(sum(chainind) * (nsteps - bi), dim)
+    
     # Shuffle once to loose correlations
     np.random.shuffle(fc)
     return fc
@@ -255,7 +261,8 @@ def emcee_vd(sampler, parnames, bi=None, chainindexes=None):
     Produce PASTIS-like value dict from emcee sampler.
     """
 
-    assert sampler.chain.shape[-1] == len(parnames)
+    if isinstance(sampler, emcee.Sampler):
+        assert sampler.chain.shape[-1] == len(parnames)
 
     # First flatten chain
     fc = emcee_flatten(sampler, bi, chainindexes)
