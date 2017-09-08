@@ -55,27 +55,27 @@ def state_constructor(input_dict):
                 # If not present, get prior information to do a reasonable
                 # guess on the jump size
                 if parlist[2] in ('Uniform', 'Jeffreys', 'Sine'):
-                    priorsize = 0.683*(parlist[4] - parlist[3])
+                    priorsize = 0.683 * (parlist[4] - parlist[3])
 
                 elif parlist[2] in ('Normal', 'LogNormal', 'TruncatedUNormal'):
-                    priorsize = parlist[4]*2.0
+                    priorsize = parlist[4] * 2.0
 
                 elif parlist[2] == 'Binormal':
-                    priorsize = 2.0*max(parlist[4], parlist[6])
+                    priorsize = 2.0 * max(parlist[4], parlist[6])
 
                 elif parlist[2] == 'AssymetricNormal':
-                    priorsize = 2.0*max(parlist[4], parlist[5])
+                    priorsize = 2.0 * max(parlist[4], parlist[5])
 
                 elif parlist[2] == 'PowerLaw':
-                    priorsize = 0.683*(parlist[5] - parlist[4])
+                    priorsize = 0.683 * (parlist[5] - parlist[4])
 
                 elif parlist[0] != 0:
-                    priorsize = 2.0*abs(parlist[0]*0.1)
+                    priorsize = 2.0 * abs(parlist[0] * 0.1)
 
                 else:
                     priorsize = 1.0
 
-                jumpsize = priorsize*0.5
+                jumpsize = priorsize * 0.5
 
             ##
             # Construct parameter instance with information on dictionary
@@ -115,9 +115,10 @@ def state_deconstructor(state, input_dict):
         for i in range(1, len(input_dict[objkey][parkey])):
             output_dict[objkey][parkey].append(input_dict[objkey][parkey][i])
 
-        # output_dict[objkey][parkey][0] = par.get_value()
+            # output_dict[objkey][parkey][0] = par.get_value()
 
     return output_dict
+
 
 # WARNING! CHECK WHICH VERSION OF state_deconstructor IS BETTER IN TERMS
 # OF OVERWRITING THE INPUT STATE
@@ -219,6 +220,13 @@ def chain2inputdict(vddict, index=None):
 
 def emcee_flatten(sampler, bi=None, chainindexes=None):
     """
+    sampler can be an emcee.Sampler instance or an iterable. If the latter,
+    first element must be chain array of shape [nwalkers, nsteps, dim],
+    second element must be lnprobability array [nwalkers, nsteps],
+    third element is acceptance rate (nwalkers,)
+    fouth element is the sampler.args attribute of the emcee.Sampler isntance.
+    lnprior function]
+
     chainindexes must be boolean
     """
 
@@ -230,18 +238,20 @@ def emcee_flatten(sampler, bi=None, chainindexes=None):
     if isinstance(sampler, emcee.Sampler):
         nwalkers, nsteps, dim = sampler.chain.shape
         chain = sampler.chain
-    elif isinstance(sampler, np.ndarray):
-        nwalkers, nsteps, dim = sampler.shape
-        chain = sampler
+    elif np.iterable(sampler):
+        nwalkers, nsteps, dim = sampler[0].shape
+        chain = sampler[0]
+    else:
+        raise TypeError('Unknown type for sampler')
 
     if chainindexes is None:
         chainind = np.array([True] * nwalkers)
     else:
         chainind = np.array(chainindexes)
-        assert len(chainind) == sampler.chain.shape[0]
-    
+        assert len(chainind) == chain.shape[0]
+
     fc = chain[chainind, bi:, :].reshape(sum(chainind) * (nsteps - bi), dim)
-    
+
     # Shuffle once to loose correlations
     np.random.shuffle(fc)
     return fc
@@ -255,7 +265,7 @@ def read_samplers(samplerfiles, rootdir):
         print('Reading sampler from file {}'.format(sam.rstrip()))
         f = open(os.path.join(rootdir, sam.rstrip()))
         samplers.append(pickle.load(f))
-        
+
     return samplers
 
 
@@ -276,7 +286,6 @@ def emcee_vd(sampler, parnames, bi=None, chainindexes=None):
 
 
 def get_map_values(sampler):
-
     ind = np.unravel_index(np.argmax(sampler.lnprobability),
                            sampler.lnprobability.shape)
     return sampler.chain[ind[0], ind[1]]
@@ -291,19 +300,15 @@ def emcee_mapdict(sampler):
 def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
     """
     Compute the Perrakis estimate of ln(Z) for a given sampler.
+
+    See docstring in emcee_flatten for format of sampler
     """
 
     # Flatten chain first
     fc = emcee_flatten(sampler, bi=bi, chainindexes=cind)
 
-    # Get functions and parameters
-    lnlikefunc = sampler.args[1]
-    lnpriorfunc = sampler.args[2]
-
-    lnlikeargs = [sampler.args[0],]
-    lnpriorargs = [sampler.args[0],]
-    lnlikeargs.extend(sampler.kwargs['lnlikeargs'])
-    lnpriorargs.extend(sampler.kwargs['lnpriorargs'])
+    # Get functions and arguments
+    lnlikefunc, lnpriorfunc, lnlikeargs, lnpriorargs = get_func_args(sampler)
 
     # Change this ugly thing!
     def lnl(x, *args):
@@ -322,18 +327,61 @@ def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
     marginal = perr.make_marginal_samples(fc, nsamples)
 
     # Compute perrakis
-    lnZ =  perr.compute_perrakis_estimate(marginal, lnl, lnp,
+    ln_z = perr.compute_perrakis_estimate(marginal, lnl, lnp,
                                           lnlikeargs, lnpriorargs)
 
     # Correct for missing term in likelihood
-    datadict = sampler.kwargs['lnlikeargs'][1]
+    datadict = get_datadict(sampler)
     nobs = 0
     for inst in datadict:
         nobs += len(datadict[inst]['data'])
-    #print('{} datapoints.'.format(nobs))
-    lnZ += -0.5 * nobs * log(2*pi)
+    # print('{} datapoints.'.format(nobs))
+    ln_z += -0.5 * nobs * log(2 * pi)
 
-    return lnZ, lnZ/log(10)
+    return ln_z, ln_z / log(10)
+
+
+def get_func_args(sampler):
+    """
+    Read functions and arguments from sampler to compute lnprior and lnlike
+
+    :param sampler:
+    :return:
+    """
+    if isinstance(sampler, emcee.Sampler):
+        # Get functions and parameters
+        lnlikefunc = sampler.args[1]
+        lnpriorfunc = sampler.args[2]
+
+        lnlikeargs = [sampler.args[0], ]
+        lnpriorargs = [sampler.args[0], ]
+        lnlikeargs.extend(sampler.kwargs['lnlikeargs'])
+        lnpriorargs.extend(sampler.kwargs['lnpriorargs'])
+
+    elif np.iterable(sampler):
+        # Get functions and parameters
+        lnlikefunc = sampler[-2][1]
+        lnpriorfunc = sampler[-2][2]
+
+        lnlikeargs = [sampler[-2][0], ]
+        lnpriorargs = [sampler[-2][0], ]
+        lnlikeargs.extend(sampler[-1]['lnlikeargs'])
+        lnpriorargs.extend(sampler[-1]['lnpriorargs'])
+
+    else:
+        raise TypeError('Unknown type for sampler')
+
+    return lnlikefunc, lnpriorfunc, lnlikeargs, lnpriorargs
+
+
+def get_datadict(sampler):
+    if isinstance(sampler, emcee.Sampler):
+        return sampler.kwargs['lnlikeargs'][1]
+
+    elif np.iterable(sampler):
+        return sampler[-1]['lnlikeargs'][1]
+    else:
+        raise TypeError('Unknown type for sampler')
 
 
 def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
@@ -345,30 +393,24 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
 
     WRITE DOC
     """
-    
+
     # Flatten chain first
     fc = emcee_flatten(sampler, bi=bi, chainindexes=cind)[::thin]
 
-    # Get functions and parameters
-    lnlikefunc = sampler.args[1]
-    lnpriorfunc = sampler.args[2]
-
-    lnlikeargs = [sampler.args[0],]
-    lnpriorargs = [sampler.args[0],]
-    lnlikeargs.extend(sampler.kwargs['lnlikeargs'])
-    lnpriorargs.extend(sampler.kwargs['lnpriorargs'])
+    # Get functions and arguments
+    lnlikefunc, lnpriorfunc, lnlikeargs, lnpriorargs = get_func_args(sampler)
 
     # Change this ugly thing!
     def lnl(x, *args):
         y = np.empty(len(x))
-        for i, xx in enumerate(x):
-            y[i] = lnlikefunc(xx, *args)
+        for ii, xx in enumerate(x):
+            y[ii] = lnlikefunc(xx, *args)
         return y
 
     def lnp(x, *args):
         y = np.empty(len(x))
-        for i, xx in enumerate(x):
-            y[i] = lnpriorfunc(xx, *args)
+        for ii, xx in enumerate(x):
+            y[ii] = lnpriorfunc(xx, *args)
         return y
 
     # Prepare multiprocessing
@@ -390,16 +432,16 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
 
     else:
         # Number of repetitions per process
-        nrep_proc = int(nrepetitions/ncpu)
-    
+        nrep_proc = int(nrepetitions / ncpu)
+
         # List of jobs to run
         jobs = []
-    
+
         for i in range(ncpu):
             p = mp.Process(target=single_perrakis, args=[fc, nsamples, lnl, lnp,
-                                                        lnlikeargs,
-                                                        lnpriorargs,   
-                                                        nrep_proc, q])
+                                                         lnlikeargs,
+                                                         lnpriorargs,
+                                                         nrep_proc, q])
             jobs.append(p)
             p.start()
             time.sleep(1)
@@ -407,7 +449,7 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
         # Wait until all jobs are done
         for p in jobs:
             p.join()
-        
+
         # Recover output from jobs
         try:
             print(q.empty())
@@ -418,48 +460,47 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
         try:
             len(lnz)
         except UnboundLocalError:
-            raise UnboundLocalError('Critical error! No job produced any output. Aborting!')
+            raise UnboundLocalError('Critical error! No job produced any '
+                                    'output. Aborting!')
 
     if datacorrect:
         # Correct for missing term in likelihood
-        datadict = sampler.kwargs['lnlikeargs'][1]
+        datadict = get_datadict(sampler)
         nobs = 0
         for inst in datadict:
             nobs += len(datadict[inst]['data'])
-        lnz += -0.5 * nobs * log(2*pi)
+        lnz += -0.5 * nobs * log(2 * pi)
 
     # Write to file
     f = open(outputfile, 'a+')
     for ll in lnz:
-        f.write('{:.6f}\t{:.6f}\n'.format(ll, ll/log(10)))
+        f.write('{:.6f}\t{:.6f}\n'.format(ll, ll / log(10)))
     f.close()
-                    
-    return lnz, lnz/log(10)
+
+    return lnz, lnz / log(10)
 
 
 def single_perrakis(fc, nsamples, lnl, lnp, lnlargs, lnpargs, nruns,
                     output_queue):
-
     # Prepare output array
     lnz = np.empty(nruns)
 
     #
     np.random.seed()
-    
+
     for i in range(nruns):
-        if i%10 == 0:
+        if i % 10 == 0:
             print(i)
 
         # Construct marginal samples
         marginal = perr.make_marginal_samples(fc, nsamples)
 
         # Compute perrakis
-        lnz[i] =  perr.compute_perrakis_estimate(marginal, lnl, lnp,
-                                                 lnlargs, lnpargs)
-        
-    if output_queue == None:
+        lnz[i] = perr.compute_perrakis_estimate(marginal, lnl, lnp,
+                                                lnlargs, lnpargs)
+
+    if output_queue is None:
         return lnz
     else:
         output_queue.put(lnz)
     return
-
