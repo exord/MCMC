@@ -216,6 +216,7 @@ def chain2inputdict(vddict, index=None):
 
     return input_dict
 
+
 def emcee_flatten(sampler, bi=None, chainindexes=None):
     """
     chainindexes must be boolean
@@ -245,6 +246,7 @@ def emcee_flatten(sampler, bi=None, chainindexes=None):
     np.random.shuffle(fc)
     return fc
 
+
 def read_samplers(samplerfiles, rootdir):
     f = open(samplerfiles)
     samplerlist = f.readlines()
@@ -255,6 +257,7 @@ def read_samplers(samplerfiles, rootdir):
         samplers.append(pickle.load(f))
         
     return samplers
+
 
 def emcee_vd(sampler, parnames, bi=None, chainindexes=None):
     """
@@ -271,16 +274,19 @@ def emcee_vd(sampler, parnames, bi=None, chainindexes=None):
     vd = dict((p, fc[:, parnames.index(p)]) for p in parnames)
     return vd
 
+
 def get_map_values(sampler):
 
     ind = np.unravel_index(np.argmax(sampler.lnprobability),
                            sampler.lnprobability.shape)
     return sampler.chain[ind[0], ind[1]]
 
+
 def emcee_mapdict(sampler):
     mapvalues = get_map_values(sampler)
     return dict((sampler.args[0][i], mapvalues[i])
                 for i in range(len(mapvalues)))
+
 
 def emcee_perrakis(sampler, nsamples=5000, bi=0, cind=None):
     """
