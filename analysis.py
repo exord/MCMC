@@ -1582,7 +1582,7 @@ def get_priors_from_value_dict(vds, pastisfile):
     return newvds
 
 
-def compute_hdi(x, y, q=0.95):
+def compute_hdi_dev(x, y, q=0.95):
     """
     Compute the 100*q% Highest Density Region, given samples from the posterior
     distribution and the posterior (up to a constant) evaluated in those
@@ -1604,7 +1604,7 @@ def compute_hdi(x, y, q=0.95):
     return x[ind[-n*q:]]
 
 
-def compute_hdi_old(binedges, pdf, q=0.95):
+def compute_hdi(binedges, pdf, q=0.95):
     """
     Compute the 100*q% Highest Density Interval, given a normalised distribution
     pdf (len N), sampled in bins m (m has N+1 elements)
