@@ -2,6 +2,8 @@
 Module with functions concerning Priors
 """
 import numpy as n
+import warnings
+
 from math import *
 from scipy import stats, interpolate
 
@@ -42,6 +44,13 @@ class uniform_gen(rv_continuous):
     def _ppf(self, q, xmin, xmax):
         return stats.uniform.ppf(q, loc=xmin, scale=xmax - xmin)
 
+# For backwards compatibility
+class uniform(uniform_gen):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("The uniform class was renamed uniform_gen",
+                      DeprecationWarning)
+        super(uniform, self).__init__(*args, **kwargs)
+        
 
 class jeffreys_gen(rv_continuous):
 
@@ -67,7 +76,14 @@ class jeffreys_gen(rv_continuous):
         # Interpolate the _inverse_ CDF
         return interpolate.interp1d(cdf, x)(q)
 
+# For backwards compatibility
+class jeffreys(jeffreys_gen):
+    def __init__(self, *args, **kwargs):
+        warnings.warn("The jeffreys class was renamed jeffrfeys_gen",
+                      DeprecationWarning)
+        super(jeffreys, self).__init__(*args, **kwargs)
 
+        
 class modjeff_gen(rv_continuous):
 
     def init(self, x0, xmax):
@@ -462,7 +478,7 @@ def prior_constructor(input_dict, customprior_dict):
             if not isinstance(parlist, list):
                 continue
 
-            # If parameter does not jump, skip this element
+            # If parameter does not jump, or is marginalised skip this element
             if parlist[1] == 0:
                 continue
 
