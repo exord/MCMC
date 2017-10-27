@@ -13,15 +13,7 @@ import string
 import glob
 
 from .Objects_MCMC import Chain
-from .tools import state_constructor
 from .priors import prior_constructor, compute_priors
-# from .. import resultpath
-# from .. import Msun, Rsun, Mjup, Rjup, G, au, Rsun2Rjup, Msun2Mjup, Mearth
-# from .. import tools
-# from .. import AstroClasses, ObjectBuilder
-# from ..limbdarkening import get_LD
-# from .. import photometry as phot
-# from .. import isochrones as iso
 
 
 def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
