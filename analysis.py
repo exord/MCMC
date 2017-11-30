@@ -1032,52 +1032,52 @@ def gelmanrubin(vds, BI=0.2, BO=1.0, thinning=1, qs=[0.9, 0.95, 0.99]):
     return
 
 
-def geweke(X, first=0.1, last=0.5, Nsamples=20, BI=0):
+def geweke(x,  bi=0, thin=1, first=0.1, size=0.1, forward=1):
     """
     Compute the Geweke diagnostic of covergence.
 
-    X can be the trace of a given parameter, or an entire chain, in which case
-    the diagnostic is computed for all jump parameters.
-
-    Nsamples is the number of samples to take from last part of chain.
+    X is the trace of a given parameter.
     """
-    if isinstance(X, objMCMC.Chain):
 
-        # Prepare dictionary for Z
-        Z = {}
+    # remove burn-in and thin
+    xx = x[bi::thin]
+    n = len(xx)
 
-        # Iterate over all parameters
-        for par in X._labeldict.keys():
-            if X._labeldict[par].jump:
-                xx = X.get_trace(par)
+    # select reference part of chain
+    xref = xx[: int(first*n)]
 
-                ## Compute Geweke Z
+    # compute mean and variance of reference
+    mean_ref = np.mean(xref)
+    var_ref = np.var(xref, ddof=1)
 
-                # Get first part of the chain after BI
-                N = len(xx[BI:])
-                xxc = xx[BI:]
+    # Iterate over chain and compare to reference
+    fractions = np.arange(first, 1+size, size)[::forward]
 
-                fxx = xxc[:int(first * N)]
-                lxx = xxc[int(first * N):]
+    results = np.empty((len(fractions) - 1, 2))
+    
+    for i in range(len(fractions)-1):
 
-                Z[par] = []
-                for jj in range(Nsamples):
-                    # Out of the last part of the chain lxx,
-                    # get the specified part
-                    a = range(len(lxx))
-                    np.random.shuffle(a)
-                    lxxc = lxx[a[:int(len(lxx) * last)]]
+        istart = int(fractions[i]*n)
+        iend = int(fractions[i+1]*n)
+        
+        xcomp = xx[istart : iend]
+        mean_comp = np.mean(xcomp)
+        var_comp = np.var(xcomp, ddof=1)
+        
+        # Compute Geweke statistics
+        z = (mean_comp - mean_ref)/sqrt(var_ref + var_comp)
+        #z = (mean_comp - mean_ref)/sqrt(2 * var_ref)
+        
+        # The variance must also be approximately the same
+        # If normal, these variables should be Chi2(N-1), 
+        # so their variance is 2*(N - 1), where N is the size of the 
+        # sample.
+        zz = (var_ref - var_comp) / sqrt(
+            2 * (len(xcomp) - 1) + 2 * (len(xref) - 1))
 
-                    # Compute mean and variance of each part
-                    z = (n.mean(fxx) - n.mean(lxxc)) / sqrt(
-                        n.var(fxx) + n.var(lxxc))
-                    Z[par].append(z)
+        results[i] = [zz, z]
 
-    else:
-        # TODO: This is incomplete.
-        N = len(X[BI:])
-        xxc = X[BI:]
-    return Z
+    return results
 
 
 # To find the BI of a given chain
