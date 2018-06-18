@@ -252,7 +252,7 @@ def get_datadict(sampler):
         raise TypeError('Unknown type for sampler')
 
 
-def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
+def emcee_multi_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
                          cind=None, ncpu=None, datacorrect=False,
                          outputfile='./perrakis_out.txt'):
     """
@@ -281,56 +281,8 @@ def multi_emcee_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
             y[ii] = lnpriorfunc(xx, *args)
         return y
 
-    # Prepare multiprocessing
-    if ncpu is None:
-        ncpu = mp.cpu_count()
-
-    # Check if number of requested repetitions below ncpu
-    ncpu = min(ncpu, nrepetitions)
-
-    # Instantiate output queue
-    q = mp.Queue()
-
-    print('Running {} repetitions on {} CPU(s).'.format(nrepetitions, ncpu))
-
-    if ncpu == 1:
-        # Do not use multiprocessing
-        lnz = single_perrakis(fc, nsamples, lnl, lnp, lnlikeargs, lnpriorargs,
-                              nrepetitions, None)
-
-    else:
-        # Number of repetitions per process
-        nrep_proc = int(nrepetitions / ncpu)
-
-        # List of jobs to run
-        jobs = []
-
-        for i in range(ncpu):
-            p = mp.Process(target=single_perrakis, args=[fc, nsamples, lnl, lnp,
-                                                         lnlikeargs,
-                                                         lnpriorargs,
-                                                         nrep_proc, q])
-            jobs.append(p)
-            p.start()
-            time.sleep(1)
-
-        # Wait until all jobs are done
-        for p in jobs:
-            p.join()
-
-        # Recover output from jobs
-        try:
-            print(q.empty())
-            lnz = np.concatenate([q.get(block=False) for p in jobs])
-        except Empty:
-            warnings.warn('At least one of the jobs failed to produce output.')
-
-        try:
-            len(lnz)
-        except UnboundLocalError:
-            raise UnboundLocalError('Critical error! No job produced any '
-                                    'output. Aborting!')
-
+    lnz = multi_cpu_perrakis(fc, lnl, lnp, lnlikeargs, lnpriorargs, nsamples,
+                             nrepetitions, ncpu=ncpu)
     if datacorrect:
         # Correct for missing term in likelihood
         datadict = get_datadict(sampler)
@@ -374,6 +326,61 @@ def single_perrakis(fc, nsamples, lnl, lnp, lnlargs, lnpargs, nruns,
     return
 
 
+def multi_cpu_perrakis(fc, lnl, lnp, lnlikeargs, lnpriorargs, 
+                       nsamples, nrepetitions=1, ncpu=None, ):
+    # Prepare multiprocessing
+    if ncpu is None:
+        ncpu = mp.cpu_count()
+
+    # Check if number of requested repetitions below ncpu
+    ncpu = min(ncpu, nrepetitions)
+
+    # Instantiate output queue
+    q = mp.Queue()
+
+    print('Running {} repetitions on {} CPU(s).'.format(nrepetitions, ncpu))
+
+    if ncpu == 1:
+        # Do not use multiprocessing
+        lnz = single_perrakis(fc, nsamples, lnl, lnp, lnlikeargs, lnpriorargs,
+                              nrepetitions, None)
+
+    else:
+        # Number of repetitions per process
+        nrep_proc = int(nrepetitions / ncpu)
+
+        # List of jobs to run
+        jobs = []
+
+        for i in range(ncpu):
+            p = mp.Process(target=single_perrakis, args=[fc, nsamples, lnl, 
+                                                         lnp, lnlikeargs,
+                                                         lnpriorargs,
+                                                         nrep_proc, q])
+            jobs.append(p)
+            p.start()
+            time.sleep(1)
+
+        # Wait until all jobs are done
+        for p in jobs:
+            p.join()
+
+        # Recover output from jobs
+        try:
+            print(q.empty())
+            lnz = np.concatenate([q.get(block=False) for p in jobs])
+        except Empty:
+            warnings.warn('At least one of the jobs failed to produce output.')
+
+        try:
+            len(lnz)
+        except UnboundLocalError:
+            raise UnboundLocalError('Critical error! No job produced any '
+                                    'output. Aborting!')
+            
+    return lnz
+
+            
 def emcee_compute_geweke(sampler, bi, thin, first=0.1, size=0.1):
 
     if isinstance(sampler, emcee.EnsembleSampler):
