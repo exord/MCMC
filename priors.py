@@ -4,7 +4,7 @@ Module with functions concerning Priors
 import numpy as n
 import warnings
 
-from math import *
+from math import pi
 from scipy import stats, interpolate
 
 from scipy.stats import rv_continuous
