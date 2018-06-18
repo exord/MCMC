@@ -12,6 +12,7 @@ from multiprocessing.queues import Empty
 import bayev.perrakis as perr
 import emcee
 
+from . import analysis as amcmc
 
 def get_jitter(data, instrument, paramdict, observable=None):
     """
@@ -371,3 +372,27 @@ def single_perrakis(fc, nsamples, lnl, lnp, lnlargs, lnpargs, nruns,
     else:
         output_queue.put(lnz)
     return
+
+
+def emcee_compute_geweke(sampler, bi, thin, first=0.1, size=0.1):
+
+    if isinstance(sampler, emcee.EnsembleSampler):
+        chain = sampler.chain
+        # lnprob = sampler.lnprobability
+
+    else:
+        chain = sampler[0]
+        # lnprob = sampler[1]
+
+    nwalkers, nsamples, nparams = chain.shape
+    
+    nblocks = int((1 - first)/size)
+
+    results = np.empty([nwalkers, nparams, nblocks, 2])
+
+    for i in range(nwalkers):
+        for j in range(nparams):
+            x = chain[i, :, j]
+            results[i, j] = amcmc.geweke(x, bi=bi, thin=thin)
+
+    return results
