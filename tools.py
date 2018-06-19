@@ -227,14 +227,28 @@ def get_func_args(sampler):
         lnpriorargs.extend(sampler.kwargs['lnpriorargs'])
 
     elif np.iterable(sampler):
-        # Get functions and parameters
-        lnlikefunc = sampler[-2][1]
-        lnpriorfunc = sampler[-2][2]
+        
+        # Check which generation of sampler are we using.
+        if hasattr(sampler[-1], '__module__'):
+            
+            # Sampler from Model instance
+            lnlikefunc = sampler[-1].lnlike
+            lnpriorfunc = sampler[-1].lnprior
+            
+            lnlikeargs = ()
+            lnpriorargs = ()
+                    
+        else:
+            # Sampler using functions.
+            
+            # Get functions and parameters
+            lnlikefunc = sampler[-2][1]
+            lnpriorfunc = sampler[-2][2]
 
-        lnlikeargs = [sampler[-2][0], ]
-        lnpriorargs = [sampler[-2][0], ]
-        lnlikeargs.extend(sampler[-1]['lnlikeargs'])
-        lnpriorargs.extend(sampler[-1]['lnpriorargs'])
+            lnlikeargs = [sampler[-2][0], ]
+            lnpriorargs = [sampler[-2][0], ]
+            lnlikeargs.extend(sampler[-1]['lnlikeargs'])
+            lnpriorargs.extend(sampler[-1]['lnpriorargs'])
 
     else:
         raise TypeError('Unknown type for sampler')
@@ -268,7 +282,7 @@ def emcee_multi_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
     # Get functions and arguments
     lnlikefunc, lnpriorfunc, lnlikeargs, lnpriorargs = get_func_args(sampler)
 
-    # Change this ugly thing!
+    # Change this ugly thing! Used to vectorize lnlikefunc and lnpriorfunc
     def lnl(x, *args):
         y = np.empty(len(x))
         for ii, xx in enumerate(x):
