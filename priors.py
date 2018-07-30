@@ -36,7 +36,7 @@ class uniform_gen(rv_continuous):
         return n.where((x >= xmin) * (x <= xmax), 1.0 / (xmax - xmin), 0.0)
 
     def logpdf(self, x, xmin, xmax):
-        return n.where((x >= xmin) * (x <= xmax), -np.log(xmax - xmin), -np.inf)
+        return n.where((x >= xmin) * (x <= xmax), -n.log(xmax - xmin), -n.inf)
     
     def _cdf(self, x, xmin, xmax):
         return stats.uniform.cdf(x, loc=xmin, scale=xmax - xmin)
@@ -70,12 +70,9 @@ class jeffreys_gen(rv_continuous):
         return cdf
 
     def _ppf(self, q, xmin, xmax):
-        dx = (xmax - xmin)*step
-        x = n.arange(xmin, xmax + dx, dx)
-        cdf = self._cdf(x, xmin, xmax)
-        # Interpolate the _inverse_ CDF
-        return interpolate.interp1d(cdf, x)(q)
-
+        return xmin * (xmax / xmin)**q
+    
+    
 # For backwards compatibility
 class jeffreys(jeffreys_gen):
     def __init__(self, *args, **kwargs):
@@ -86,11 +83,14 @@ class jeffreys(jeffreys_gen):
         
 class modjeff_gen(rv_continuous):
 
-    def init(self, x0, xmax):
-        super(modjeff, self).__init__(a=0.0, shapes='x0, xmax',
-                                      name='modjeff',
-                                      longname='Modified Jeffreys distribution')
-        
+    """
+    def __init__(self, x0, xmax):
+        super(modjeff_gen, self).__init__(a=0.0, shapes='x0, xmax',
+                                          name='modjeff',
+                                          longname='Modified Jeffreys '
+                                                   'distribution')
+    """
+    
     def _argcheck(self, x0, xmax):
         return (xmax > x0) & (x0 > 0)
 
@@ -106,11 +106,7 @@ class modjeff_gen(rv_continuous):
         return cdf
 
     def _ppf(self, q, x0, xmax):
-        dx = xmax*step
-        x = n.arange(0, xmax + dx, dx)
-        cdf = self._cdf(x, x0, xmax)
-        # Interpolate the _inverse_ CDF
-        return interpolate.interp1d(cdf, x)(q)
+        return x0 * (1 + xmax / x0)**q - x0
    
     
 class binorm_gen(rv_continuous):
@@ -431,7 +427,7 @@ Uniform = uniform_gen(name='Uniform distribution', shapes='xmin, xmax')
 Jeffreys = jeffreys_gen(name='Jeffreys distribution',
                         shapes='xmin, xmax', a=0.0)
 ModJeffreys = modjeff_gen(name='Modified Jeffreys distribution',
-                               shapes='x0, xmax', a=0.0)
+                          shapes='x0, xmax', a=0.0)
 Normal = stats.norm
 LogNormal = stats.lognorm
 Log10Normal = log10norm_gen(name='Log10 Normal distribution',
