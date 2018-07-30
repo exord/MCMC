@@ -120,8 +120,8 @@ def emcee_flatten(sampler, bi=None, chainindexes=None):
 
     fc = chain[chainind, bi:, :].reshape(sum(chainind) * (nsteps - bi), dim)
 
-    # Shuffle once to loose correlations
-    np.random.shuffle(fc)
+    # Shuffle once to loose correlations (bad idea, as this screws map)
+    # np.random.shuffle(fc)
     return fc
 
 
