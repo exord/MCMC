@@ -110,9 +110,9 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
     outputdict = {}
 
     # Find index after burn in.
-    istart = int(n.round(len(vd[vd.keys()[0]]) * burnin))
+    istart = int(len(list(vd.values())[0]) * burnin)
 
-    for param in n.sort(vd.keys()):
+    for param in n.sort(list(vd.keys())):
 
         # Get median and mode, and dispersion
         statdict = {'median': n.median(vd[param][istart:]),
