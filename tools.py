@@ -261,7 +261,12 @@ def get_datadict(sampler):
         return sampler.kwargs['lnlikeargs'][1]
 
     elif np.iterable(sampler):
-        return sampler[-1]['lnlikeargs'][1]
+        try:
+            return sampler[-1]['lnlikeargs'][1]
+        except TypeError:
+            # For Model instance; 
+            # TODO: type checking would be better.
+            return sampler[-1].data
     else:
         raise TypeError('Unknown type for sampler')
 
@@ -394,7 +399,7 @@ def multi_cpu_perrakis(fc, lnl, lnp, lnlikeargs, lnpriorargs,
             
     return lnz
 
-            
+
 def emcee_compute_geweke(sampler, bi, thin, first=0.1, size=0.1):
 
     if isinstance(sampler, emcee.EnsembleSampler):
