@@ -18,7 +18,8 @@ from .priors import prior_constructor, compute_priors
 
 def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
                          percentile=True, cumulative=False, difftol=0.3,
-                         pmsym='+/-', report='mean', output=False):
+                         pmsym='+/-', report='mean', output=False,
+                         handlenan=True):
     """
     Computes confidence intervals for all parameters in a given chain, and
     print it to the standard output.
@@ -74,6 +75,10 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
         Decides whether the value and confidence intervals are returned in a
         dictionary or not.
         
+    handlenan, boolean
+        Decides whether nan entries are removed before computing statistics.
+        Default is True.
+        
     """
     if isinstance(C, Chain):
         vd = C.get_value_dict()
@@ -114,12 +119,17 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
 
     for param in n.sort(list(vd.keys())):
 
+        if handlenan:
+            nanindex = np.isnan(vd[param][istart:])
+            x = vd[param][istart:][~nanindex]
+        else:
+            x = vd[param][istart:]
         # Get median and mode, and dispersion
-        statdict = {'median': n.median(vd[param][istart:]),
-                    'mean': n.mean(vd[param][istart:]),
-                    'sigma': n.std(vd[param][istart:]),
-                    'min': n.min(vd[param][istart:]),
-                    'max': n.max(vd[param][istart:])
+        statdict = {'median': n.median(x),
+                    'mean': n.mean(x),
+                    'sigma': n.std(x),
+                    'min': n.min(x),
+                    'max': n.max(x)
                     }
 
         # Try to add MAP value
@@ -131,10 +141,10 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
         # Compute histogram for all cases that require it.
         if report is 'mode' or not percentile or hdi is not None:
             # Compute histogram
-            m, bins = n.histogram(vd[param][istart:], nbins, normed=True)
-            x = bins[:-1] + 0.5 * n.diff(bins)
+            m, bins = n.histogram(x, nbins, normed=True)
+            binpositions = bins[:-1] + 0.5 * n.diff(bins)
 
-            modevalue = x[n.argmax(m)]
+            modevalue = binpositions[n.argmax(m)]
 
             statdict['mode'] = modevalue
 
@@ -143,8 +153,8 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
         ###
         if percentile:
             # Method independent of bin size.
-            lower_limit = n.percentile(vd[param][istart:], 100 * qmin)
-            upper_limit = n.percentile(vd[param][istart:], 100 * qmax)
+            lower_limit = n.percentile(x, 100 * qmin)
+            upper_limit = n.percentile(x, 100 * qmax)
 
         else:
             # Original method
