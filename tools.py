@@ -10,7 +10,7 @@ import multiprocessing as mp
 from multiprocessing.queues import Empty
 
 import bayev.perrakis as perr
-import emcee
+import emcee, emcee3
 
 from . import analysis as amcmc
 
@@ -150,18 +150,42 @@ def emcee_vd(sampler, parnames, bi=None, chainindexes=None):
 
     # Value dict
     vd = dict((p, fc[:, parnames.index(p)]) for p in parnames)
+
     return vd
 
 
 def get_map_values(sampler):
-    ind = np.unravel_index(np.argmax(sampler.lnprobability),
-                           sampler.lnprobability.shape)
-    return sampler.chain[ind[0], ind[1]]
+
+    if hasattr(sampler, '__iter__'):
+        lnprob = sampler[1]
+        chain = sampler[0]
+    else:
+        try:
+            lnprob = sampler.lnprobability
+            chain = sampler.chain
+
+        except AttributeError:
+            raise AttributeError('I cannot interpret the input; '
+                                 'please check.')
+
+    ind = np.unravel_index(np.argmax(lnprob), lnprob.shape)
+
+    # Check in which order index must be given
+    if chain.shape[0] == lnprob.shape[0]:
+        return chain[ind[0], ind[1]]
+    elif chain.shape[0] == lnprob.shape[1]:
+        return chain[ind[1], ind[0]]
 
 
 def emcee_mapdict(sampler):
+
+    if hasattr(sampler, '__iter__'):
+        pnames = sampler[-1]
+    else:
+        pnames = sampler.args[0]
+
     mapvalues = get_map_values(sampler)
-    return dict((sampler.args[0][i], mapvalues[i])
+    return dict((pnames[i], mapvalues[i])
                 for i in range(len(mapvalues)))
 
 
@@ -227,20 +251,20 @@ def get_func_args(sampler):
         lnpriorargs.extend(sampler.kwargs['lnpriorargs'])
 
     elif np.iterable(sampler):
-        
+
         # Check which generation of sampler are we using.
         if hasattr(sampler[-1], '__module__'):
-            
+
             # Sampler from Model instance
             lnlikefunc = sampler[-1].lnlike
             lnpriorfunc = sampler[-1].lnprior
-            
+
             lnlikeargs = ()
             lnpriorargs = ()
-                    
+
         else:
             # Sampler using functions.
-            
+
             # Get functions and parameters
             lnlikefunc = sampler[-2][1]
             lnpriorfunc = sampler[-2][2]
@@ -264,7 +288,7 @@ def get_datadict(sampler):
         try:
             return sampler[-1]['lnlikeargs'][1]
         except TypeError:
-            # For Model instance; 
+            # For Model instance;
             # TODO: type checking would be better.
             return sampler[-1].data
     else:
@@ -275,7 +299,7 @@ def emcee_multi_perrakis(sampler, nsamples=5000, bi=0, thin=1, nrepetitions=1,
                          cind=None, ncpu=None, datacorrect=False,
                          outputfile='./perrakis_out.txt'):
     """
-    Compute the Perrakis estimate of ln(Z) for a given sampler 
+    Compute the Perrakis estimate of ln(Z) for a given sampler
     repeateadly using multicore
 
     WRITE DOC
@@ -345,7 +369,7 @@ def single_perrakis(fc, nsamples, lnl, lnp, lnlargs, lnpargs, nruns,
     return
 
 
-def multi_cpu_perrakis(fc, lnl, lnp, lnlikeargs, lnpriorargs, 
+def multi_cpu_perrakis(fc, lnl, lnp, lnlikeargs, lnpriorargs,
                        nsamples, nrepetitions=1, ncpu=None, ):
     # Prepare multiprocessing
     if ncpu is None:
@@ -372,7 +396,7 @@ def multi_cpu_perrakis(fc, lnl, lnp, lnlikeargs, lnpriorargs,
         jobs = []
 
         for i in range(ncpu):
-            p = mp.Process(target=single_perrakis, args=[fc, nsamples, lnl, 
+            p = mp.Process(target=single_perrakis, args=[fc, nsamples, lnl,
                                                          lnp, lnlikeargs,
                                                          lnpriorargs,
                                                          nrep_proc, q])
@@ -396,7 +420,7 @@ def multi_cpu_perrakis(fc, lnl, lnp, lnlikeargs, lnpriorargs,
         except UnboundLocalError:
             raise UnboundLocalError('Critical error! No job produced any '
                                     'output. Aborting!')
-            
+
     return lnz
 
 
@@ -411,7 +435,7 @@ def emcee_compute_geweke(sampler, bi, thin, first=0.1, size=0.1):
         # lnprob = sampler[1]
 
     nwalkers, nsamples, nparams = chain.shape
-    
+
     nblocks = int((1 - first)/size)
 
     results = np.empty([nwalkers, nparams, nblocks, 2])
@@ -419,6 +443,7 @@ def emcee_compute_geweke(sampler, bi, thin, first=0.1, size=0.1):
     for i in range(nwalkers):
         for j in range(nparams):
             x = chain[i, :, j]
-            results[i, j] = amcmc.geweke(x, bi=bi, thin=thin)
+            results[i, j] = amcmc.geweke(x, bi=bi, thin=thin, first=first,
+                                         size=size)
 
     return results
