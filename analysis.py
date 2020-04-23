@@ -41,7 +41,7 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
         The fraction of the mass of the distribution to include in the
         Highest Denstity Interval. It can be a float or an iterable object
         with a series of values. If None, no hdi is computed
-    
+
     nbins, int
         The number of bins used for the computation. If negative, the
         computation is done using the absolute value of nbins for the mode,
@@ -58,7 +58,7 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
     cumulative, boolean
         Defines if instead of returning median and confidence limits, return
         q*100% cumulative value.
-        
+
     difftol, float
         Maximum fractional difference between upper and lower limits above which
         both values are printed. If the difference is below this value, print
@@ -74,11 +74,11 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
     output, boolean
         Decides whether the value and confidence intervals are returned in a
         dictionary or not.
-        
+
     handlenan, boolean
         Decides whether nan entries are removed before computing statistics.
         Default is True.
-        
+
     """
     if isinstance(C, Chain):
         vd = C.get_value_dict()
@@ -297,13 +297,13 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
 def autocorr(x, lags):
     """
     Compute autocorrelation of x at elements of lag.
-    
+
     :param array-like x: vector for which to compute autocorrelation
     :param iterable lags: lags for which to compute auto-correlation.
     """
     lags = np.atleast_1d(lags)
     x = np.array(x)
-    
+
     # Compute means that are used at each lag
     xmean = x.mean()
     x2mean = (x**2).mean()
@@ -315,7 +315,7 @@ def autocorr(x, lags):
         corr[i] = corr_onelag(x, lag, xmean=xmean)
     return corr
 
-    
+
 def corr_onelag_tegmark(x, lag, x2mean=None, xmean2=None):
     """
     Compute autocorrelation of x at a single lag.
@@ -331,7 +331,7 @@ def corr_onelag_tegmark(x, lag, x2mean=None, xmean2=None):
     :param float x2mean: mean of x**2 over entire vector.
     """
     x = np.array(x)
-    
+
     if xmean2 is None:
         xmean2 = x.mean()**2
 
@@ -343,7 +343,7 @@ def corr_onelag_tegmark(x, lag, x2mean=None, xmean2=None):
 
     # Compute mean over shifted version of array
     return ((xs * x).mean() - xmean2) / (x2mean - xmean2)
-    
+
 
 def corr_onelag(x, lag, xmean=None):
     x = np.array(x).copy()
@@ -380,7 +380,7 @@ def corrlength(x, step=1, BI=0.2, BO=1.0, widget=False, verbose=True,
         The fraction up to which the chain is considered. To use in combination
         of BI. E.g.: a BI of 0.2 and a BO of 0.6 imply that the correlation is
         computed over 40 % of the chain.
-    
+
     widget: boolean
         To display or not the printed information
 
@@ -397,7 +397,7 @@ def corrlength(x, step=1, BI=0.2, BO=1.0, widget=False, verbose=True,
 
     title: str
         Title for plot (default: '')
-        
+
     circular: bool
         Assumes the time series have simmetry, so that when shifted, the last
         part goes to the beginning. This saves time.
@@ -405,12 +405,12 @@ def corrlength(x, step=1, BI=0.2, BO=1.0, widget=False, verbose=True,
     stop: bool
         Defines whether the computation stops when the correlation has fallen
         below 1/e or if it continues to the end.
-        
+
     Returns
     -------
     shifts: ndarray
         The shift values for which the computation was done.
-	
+
     corr: ndarray
         The correlation value for each step.
 
@@ -433,7 +433,7 @@ def corrlength(x, step=1, BI=0.2, BO=1.0, widget=False, verbose=True,
         verbose = False
 
     step = int(step)
-    
+
     indstart = n.int(len(x) * BI)
     indend = n.int(len(x) * BO)
     x = x[indstart: indend]
@@ -525,7 +525,7 @@ def corrlength2(x, step=1, BI=0.2, widget=False):
         The fraction of the chain to be discarded for the computation of the
         correlation length. This is used if the traces
         contain the burn-in period.
-    
+
     widget: boolean
         To display or not the printed information
 
@@ -533,7 +533,7 @@ def corrlength2(x, step=1, BI=0.2, widget=False):
     -------
     shifts: ndarray
         The shift values for which the computation was done.
-	
+
     corr: ndarray
         The correlation value for each step.
 
@@ -603,7 +603,7 @@ def corrlength_multichain(vds, step=1, BI=0.2, plot=False, widget=False,
     ----------
     vds: list
         a list of the value dictionaries of each chain. See Chain.get_value_dict()
-    
+
     step: int
         The number of elements to shift x at each step of the computation.
 
@@ -613,10 +613,10 @@ def corrlength_multichain(vds, step=1, BI=0.2, plot=False, widget=False,
 	An iterable object containing the fraction to be discarded for each
 	individual chain to be merged can also be given. In this case, the
 	number of elements in BI must equal that in vds.
-        
+
     plot: bool
         plot the chain correlation lenght for each parameter
-        
+
     plotCL: bool
         plot the chain correlation curve  for each parameter of each chain.
 
@@ -626,13 +626,13 @@ def corrlength_multichain(vds, step=1, BI=0.2, plot=False, widget=False,
     Other parameters
     ----------------
     The remaining keyword arguments are passed to corrlength function
-    
+
     Returns
     -------
     corrlen: dict
-        A dictionary containing the correlation lenght for all chains for each 
+        A dictionary containing the correlation lenght for all chains for each
         parameter (key)
- 
+
     """
     if widget:
         verbose = False
@@ -729,7 +729,7 @@ def corrlength_multichain2(vds, step=1, BI=0.2, plot=False, widget=False):
     ----------
     vds: list
         a list of the value dictionaries of each chain. See Chain.get_value_dict()
-    
+
     step: int
         The number of elements to shift x at each step of the computation.
 
@@ -737,19 +737,19 @@ def corrlength_multichain2(vds, step=1, BI=0.2, plot=False, widget=False):
         The fraction of the chain to be discarded for the computation of the
         correlation length. This is used if the traces
 	contain the burn-in period.
-        
+
     plot: bool
         plot the chain correlation lenght for each parameter
-        
+
     widget, boolean
         option that displays a widget status bar
 
     Returns
     -------
     corrlen: dict
-        A dictionary containing the correlation lenght for all chains for each 
+        A dictionary containing the correlation lenght for all chains for each
         parameter (key)
- 
+
     """
     import Tkinter
     import MeterBar
@@ -823,7 +823,7 @@ def corrlenchain(corrlen):
     Parameters
     ----------
     corrlen: dict
-        A dictionary containing the correlation lenght for all chains for each 
+        A dictionary containing the correlation lenght for all chains for each
         parameter (key)
 
     Returns
@@ -847,8 +847,8 @@ def corrlenchain(corrlen):
 
 def checkpriors(vdc, pastisfile, **kargs):
     """
-    Plot histogram of each parameter of the merged chain together with 
-    its prior taken from a .pastis configuration file 
+    Plot histogram of each parameter of the merged chain together with
+    its prior taken from a .pastis configuration file
 
     Parameter
     ---------
@@ -856,8 +856,8 @@ def checkpriors(vdc, pastisfile, **kargs):
         The merged chain, output of the merge_chains function.
 
     pastisfile: string
-        The name of the .pastis configuration file 
-        
+        The name of the .pastis configuration file
+
     **kargs
         Parameters for the hist function
 
@@ -894,7 +894,7 @@ def checkpriors(vdc, pastisfile, **kargs):
 def get_multichain(vdchain, beta=None):
     """
     Gets multichain dictionary from list of VDchain objects
-    
+
     Parameters
     ----------
     vdchain: VDchain
@@ -1064,25 +1064,25 @@ def geweke(x,  bi=0, thin=1, first=0.1, size=0.1, forward=1):
     fractions = np.arange(first, 1+size, size)[::forward]
 
     results = np.empty((len(fractions) - 1, 2))
-    
+
     for i in range(len(fractions)-1):
 
         istart = int(fractions[i]*n)
         iend = int(fractions[i+1]*n)
-        
+
         xcomp = xx[istart : iend]
         mean_comp = np.mean(xcomp)
         var_comp = np.var(xcomp, ddof=1)
-        
+
         # Compute Geweke statistics
         z = (mean_comp - mean_ref)/sqrt(var_ref + var_comp)
         #z = (mean_comp - mean_ref)/sqrt(2 * var_ref)
-        
+
         # The variance must also be approximately the same
-        # If normal, these variables should be Chi2(N-1), 
-        # so their variance is 2*(N - 1), where N is the size of the 
+        # If normal, these variables should be Chi2(N-1),
+        # so their variance is 2*(N - 1), where N is the size of the
         # sample.
-        zz = (var_ref - var_comp) / sqrt(
+        zz = (var_ref + var_comp) / sqrt(
             2 * (len(xcomp) - 1) + 2 * (len(xref) - 1))
 
         results[i] = [zz, z]
@@ -1099,13 +1099,13 @@ def find_BI(vds, samplesize=0.05, endsample=0.1, backwards=True,
     Find the BurnIn of a given chain or a group of chains by comparing the
     mean and, possibly, also the variance of the trace of parameter param
     throughtout the chain to that at the end of the chain.
-    
+
     Parameters
     ----------
     vds: list, dict, or VDchain instance.
         The list of chains, or individual chain for which the BI will be
         computed. The list can contain dict instances with the traces of the
-        parameters, or VDchain instances. All chains must contain param  as a 
+        parameters, or VDchain instances. All chains must contain param  as a
         parameter.
 
     Other parameters
@@ -1115,7 +1115,7 @@ def find_BI(vds, samplesize=0.05, endsample=0.1, backwards=True,
        the chain. It must be expressed as a fraction of the total length.
 
     endsample: float.
-        Size of the end part of the logL trace used to compare with the rest 
+        Size of the end part of the logL trace used to compare with the rest
         of the chain
 
     tolerance: float.
@@ -1216,8 +1216,8 @@ def find_BI(vds, samplesize=0.05, endsample=0.1, backwards=True,
                 z = (n.mean(ys) - mean_yf) / n.sqrt(2 * var_yf)
 
                 # The variance must also be approximately the same
-                # If normal, these variables should be Chi2(N-1), 
-                # so their variance is 2*(N - 1), where N is the size of the 
+                # If normal, these variables should be Chi2(N-1),
+                # so their variance is 2*(N - 1), where N is the size of the
                 # sample.
                 zz = (var_ys - var_yf) / n.sqrt(
                     2 * (len(ys) - 1) + 2 * (len(yf) - 1))
@@ -1272,8 +1272,8 @@ def find_BI(vds, samplesize=0.05, endsample=0.1, backwards=True,
                 z = (n.mean(ys) - mean_yf) / n.sqrt(2 * var_yf)
 
                 # The variance must also be approximately the same
-                # If normal, these variables should be Chi2(N-1), 
-                # so their variance is 2*(N - 1), where N is the size of the 
+                # If normal, these variables should be Chi2(N-1),
+                # so their variance is 2*(N - 1), where N is the size of the
                 # sample.
                 zz = (var_ys - var_yf) / n.sqrt(
                     2 * (len(ys) - 1) + 2 * (len(yf) - 1))
@@ -1324,7 +1324,7 @@ def select_best_chains(vds, BI, CL, nmin=100, tolerance=2.0,
                        param='posterior', param2=None, fnames=None):
     """
     Identify the chains having a significant worse logL than the best one.
-    
+
     Parameters
     ----------
     vds: list, dict, or VDchain instance.
@@ -1346,7 +1346,7 @@ def select_best_chains(vds, BI, CL, nmin=100, tolerance=2.0,
 	individual chain to be can be given. In this case, the
 	number of elements in CL must equal that in vds. Otherwise a single
         CL for all chains is used
-        
+
     Other parameters
     ----------------
     tolerance: float.
@@ -1521,7 +1521,7 @@ def get_priors_from_value_dict(vds, pastisfile):
 
     pastisfile: str, or file instance
         The file containing the configuration for the run for which to compute
-        the priors.        
+        the priors.
     """
 
     # Read configuration file
