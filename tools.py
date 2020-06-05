@@ -118,7 +118,8 @@ def emcee_flatten(sampler, bi=None, chainindexes=None):
         chainind = np.array(chainindexes)
         assert len(chainind) == chain.shape[0]
 
-    fc = chain[chainind, bi:, :].reshape(sum(chainind) * (nsteps - bi), dim)
+    fc = chain[chainind, bi:, :].reshape(sum(chainind) * (nsteps - bi), dim,
+                                         order='C')
 
     # Shuffle once to loose correlations (bad idea, as this screws map)
     # np.random.shuffle(fc)
