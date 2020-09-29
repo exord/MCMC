@@ -14,6 +14,7 @@ import emcee, emcee3
 
 from . import analysis as amcmc
 
+
 def get_jitter(data, instrument, paramdict, observable=None):
     """
     Compute jitter given an element of a datadict (data).
@@ -59,7 +60,8 @@ def get_jitter(data, instrument, paramdict, observable=None):
 
 def chain2inputdict(vddict, index=None):
     """
-    Convert a chain dictionary to an input_dict appropiate to construct a model.
+    Convert a chain dictionary to an input_dict appropiate to construct a
+    model.
 
     The function returns an input dict with nonesense prior information that
     can be passed to the object builder to construct objects
@@ -67,7 +69,8 @@ def chain2inputdict(vddict, index=None):
     :param dict vddict: a dictionary instance with the parameter names and the
      chain traces.
 
-    :param int index: if not None, use this element of chain to build input dict.
+    :param int index: if not None, use this element of chain to build input
+    dict.
     """
 
     vddict.pop('logL', None)
