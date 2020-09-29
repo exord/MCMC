@@ -10,7 +10,7 @@ import multiprocessing as mp
 from multiprocessing.queues import Empty
 
 import bayev.perrakis as perr
-import emcee, emcee3
+import emcee
 
 from . import analysis as amcmc
 
@@ -91,11 +91,11 @@ def chain2inputdict(vddict, index=None):
 
 def emcee_flatten(sampler, bi=None, chainindexes=None):
     """
-    sampler can be an emcee.Sampler instance or an iterable. If the latter,
-    first element must be chain array of shape [nwalkers, nsteps, dim],
-    second element must be lnprobability array [nwalkers, nsteps],
-    third element is acceptance rate (nwalkers,)
-    fouth element is the sampler.args attribute of the emcee.Sampler isntance.
+    sampler can be an emcee.EnsembleSampler instance or an iterable.
+    If the latter, first element must be chain array of shape
+    [nwalkers, nsteps, dim], second element must be lnprobability array
+    [nwalkers, nsteps], third element is acceptance rate (nwalkers,)
+    fouth element is the sampler.args attribute of the emcee.Sampler instance.
     lnprior function]
 
     chainindexes must be boolean
@@ -106,7 +106,7 @@ def emcee_flatten(sampler, bi=None, chainindexes=None):
     else:
         bi = int(bi)
 
-    if isinstance(sampler, emcee.Sampler):
+    if isinstance(sampler, emcee.EnsembleSampler):
         nwalkers, nsteps, dim = sampler.chain.shape
         chain = sampler.chain
     elif np.iterable(sampler):
@@ -146,7 +146,7 @@ def emcee_vd(sampler, parnames, bi=None, chainindexes=None):
     Produce PASTIS-like value dict from emcee sampler.
     """
 
-    if isinstance(sampler, emcee.Sampler):
+    if isinstance(sampler, emcee.EnsembleSampler):
         assert sampler.chain.shape[-1] == len(parnames)
 
     # First flatten chain
@@ -244,7 +244,7 @@ def get_func_args(sampler):
     :param sampler:
     :return:
     """
-    if isinstance(sampler, emcee.Sampler):
+    if isinstance(sampler, emcee.EnsembleSampler):
         # Get functions and parameters
         lnlikefunc = sampler.args[1]
         lnpriorfunc = sampler.args[2]
@@ -285,7 +285,7 @@ def get_func_args(sampler):
 
 
 def get_datadict(sampler):
-    if isinstance(sampler, emcee.Sampler):
+    if isinstance(sampler, emcee.EnsembleSampler):
         return sampler.kwargs['lnlikeargs'][1]
 
     elif np.iterable(sampler):
