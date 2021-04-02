@@ -97,7 +97,7 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
         mapindex = n.argmax(vd['posterior'])
     except KeyError:
         mapindex = n.nan
-        if report is 'map':
+        if report == 'map':
             print('Posterior not given, will return posterior mode.')
             report = 'mode'
 
@@ -139,7 +139,7 @@ def confidence_intervals(C, q=0.6827, hdi=None, nbins=50, burnin=0.0,
             statdict['map'] = n.nan
 
         # Compute histogram for all cases that require it.
-        if report is 'mode' or not percentile or hdi is not None:
+        if report == 'mode' or not percentile or hdi is not None:
             # Compute histogram
             m, bins = n.histogram(x, nbins, normed=True)
             binpositions = bins[:-1] + 0.5 * n.diff(bins)
